@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A4 10連ポケットカードプリント Pro</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+
+        /* -------------------------------------------------------------
+           印刷専用スタイル（A4 100% 1ページ厳密収容設計）
+           ------------------------------------------------------------- */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0 !important; /* 印刷時のデフォルト余白を完全カット */
+            }
+
+            html, body {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                overflow: hidden !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* 画面用UI要素を完全に削除 */
+            .no-print, 
+            .no-print * {
+                display: none !important;
+                height: 0 !important;
+                width: 0 !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+            }
+
+            /* 印刷用A4エリアを絶対配置で1枚に固定 */
+            #a4-paper {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                transform: scale(1) !important; /* 画面表示用拡大縮小をリセット */
+                transform-origin: top left !important;
+                background-color: #ffffff !important;
+                page-break-before: avoid !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
+            }
+
+            .card-item {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+        }
+
+        /* 画面表示用A4シートのスタイル */
+        .a4-sheet {
+            width: 210mm;
+            height: 297mm;
+            box-sizing: border-box;
+            background-color: #ffffff;
+            color: #000000;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        /* 切り取り線・トンボガイドのスタイル定義 */
+        .cut-line-dashed {
+            border: 1px dashed #94a3b8 !important;
+        }
+
+        .cut-line-solid {
+            border: 1px solid #64748b !important;
+        }
+
+        .cut-line-none {
+            border: 1px solid transparent !important;
+        }
+
+        /* トンボ（クロップマーク）スタイル */
+        .crop-marks {
+            position: relative;
+            border: 1px solid transparent !important;
+        }
+        .crop-marks::before, .crop-marks::after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+        /* カード四隅のL字トンボマーク */
+        .crop-mark-tl { position: absolute; top: 0; left: 0; width: 8px; height: 8px; border-top: 1px solid #475569; border-left: 1px solid #475569; pointer-events: none; }
+        .crop-mark-tr { position: absolute; top: 0; right: 0; width: 8px; height: 8px; border-top: 1px solid #475569; border-right: 1px solid #475569; pointer-events: none; }
+        .crop-mark-bl { position: absolute; bottom: 0; left: 0; width: 8px; height: 8px; border-bottom: 1px solid #475569; border-left: 1px solid #475569; pointer-events: none; }
+        .crop-mark-br { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-bottom: 1px solid #475569; border-right: 1px solid #475569; pointer-events: none; }
+
+        /* スクロールバーのカスタム */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-100 select-none">
+
+    <!-- ヘッダー（操作コントロールバー） -->
+    <header class="no-print bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between z-30 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-sky-500 to-indigo-500 p-2.5 rounded-xl shadow-lg text-white">
+                <i class="fa-solid fa-print text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight tracking-wide text-white flex items-center gap-2">
+                    A4 10連カードプリンター
+                    <span class="text-xs font-normal bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-full">ぴったり10枚</span>
+                </h1>
+                <p class="text-xs text-slate-400">A4用紙1枚に2列×5行でカラー配置・超え出なし完全PDF保存</p>
+            </div>
+        </div>
+
+        <!-- 印刷・PDF保存メインボタン群 -->
+        <div class="flex items-center gap-3">
+            <button onclick="openGuideModal()" class="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-medium transition">
+                <i class="fa-solid fa-circle-question text-sky-400"></i>
+                サイズ解説・活用術
+            </button>
+            <button onclick="triggerPrint()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-lg shadow-sky-500/25 transition transform active:scale-95">
+                <i class="fa-solid fa-file-pdf text-base"></i>
+                <span>A4で印刷 / PDF保存</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツエリア (左右分割レイアウト) -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- 左側：コントロールパネル -->
+        <aside class="no-print w-80 lg:w-96 bg-slate-900/90 backdrop-blur border-r border-slate-800 flex flex-col z-20 flex-shrink-0">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-sky-400"></i> カード・レイアウト設定
+                </span>
+                <button onclick="resetAllSettings()" class="text-xs text-slate-400 hover:text-sky-400 transition flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-left"></i> リセット
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+
+                <!-- 1. 画像一括アップロード & ドロップゾーン -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        1. 画像の一括アップロード
+                    </label>
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-sky-500 bg-slate-800/50 hover:bg-slate-800/80 rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 group">
+                        <input type="file" id="image-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
+                        <div class="w-10 h-10 rounded-full bg-slate-700 group-hover:bg-sky-500/20 text-slate-300 group-hover:text-sky-400 flex items-center justify-center transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-slate-200">画像を選択 または ドロップ</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">JPG, PNG, GIF, WebP (複数選択可)</p>
+                        </div>
+                    </div>
+
+                    <!-- モード切り替え（全カード同一 vs 個別選択） -->
+                    <div class="grid grid-cols-2 gap-1 bg-slate-800 p-1 rounded-lg text-xs font-medium mt-2">
+                        <button id="mode-all-btn" onclick="setApplyMode('all')" class="py-1.5 rounded-md bg-sky-600 text-white shadow text-center transition">
+                            全枠に同じ画像
+                        </button>
+                        <button id="mode-each-btn" onclick="setApplyMode('each')" class="py-1.5 rounded-md text-slate-400 hover:text-white text-center transition">
+                            枠ごとに別画像
+                        </button>
+                    </div>
+                </div>
+
+                <!-- プリセットサンプル選択 -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        サンプル用画像プリセット
+                    </label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="applyPreset('vocab')" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-center transition text-[11px] text-slate-300 hover:text-white">
+                            <div class="text-sky-400 text-base mb-1"><i class="fa-solid fa-language"></i></div>
+                            単語帳
+                        </button>
+                        <button onclick="applyPreset('thanks')" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-center transition text-[11px] text-slate-300 hover:text-white">
+                            <div class="text-rose-400 text-base mb-1"><i class="fa-solid fa-heart"></i></div>
+                            感謝状
+                        </button>
+                        <button onclick="applyPreset('coupon')" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-center transition text-[11px] text-slate-300 hover:text-white">
+                            <div class="text-amber-400 text-base mb-1"><i class="fa-solid fa-ticket"></i></div>
+                            チケット
+                        </button>
+                        <button onclick="applyPreset('pass')" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-center transition text-[11px] text-slate-300 hover:text-white">
+                            <div class="text-emerald-400 text-base mb-1"><i class="fa-solid fa-id-card"></i></div>
+                            Pass
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. 画像のフィット調整 -->
+                <div class="space-y-3 pt-2 border-t border-slate-800">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        2. 画像のはめ込み方式
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="fit-cover-btn" onclick="setImageFit('cover')" class="flex items-center gap-2 p-2.5 rounded-xl border bg-sky-950/60 border-sky-500 text-sky-200 text-xs font-medium transition">
+                            <i class="fa-solid fa-expand text-sm"></i>
+                            <div class="text-left">
+                                <div class="font-bold">余白なく埋める</div>
+                                <div class="text-[10px] text-slate-400">Cover（端をカット）</div>
+                            </div>
+                        </button>
+                        <button id="fit-contain-btn" onclick="setImageFit('contain')" class="flex items-center gap-2 p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium transition">
+                            <i class="fa-solid fa-compress text-sm"></i>
+                            <div class="text-left">
+                                <div class="font-bold">全体を表示する</div>
+                                <div class="text-[10px] text-slate-400">Contain（余白あり）</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. 切り取り線（ガイド線）の設定 -->
+                <div class="space-y-3 pt-2 border-t border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                            3. 切り取り線の種類
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggle-cut-lines" checked onchange="toggleCutLines(this.checked)" class="sr-only peer">
+                            <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-sky-500 relative"></div>
+                            <span class="ml-2 text-xs text-slate-300">表示</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="line-dashed-btn" onclick="setLineStyle('dashed')" class="p-2 rounded-lg bg-sky-950/60 border border-sky-500 text-sky-300 text-xs font-medium text-center transition">
+                            <div class="border-b-2 border-dashed border-sky-400 my-1 w-full"></div>
+                            薄い点線
+                        </button>
+                        <button id="line-solid-btn" onclick="setLineStyle('solid')" class="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium text-center transition">
+                            <div class="border-b my-1 border-slate-400 w-full"></div>
+                            細い実線
+                        </button>
+                        <button id="line-crop-btn" onclick="setLineStyle('crop')" class="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium text-center transition">
+                            <div class="text-xs my-0.5 text-slate-400"><i class="fa-solid fa-crop-simple"></i></div>
+                            トンボ風
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. 余白・ギャップ（ミリ指定）調整 -->
+                <div class="space-y-3 pt-2 border-t border-slate-800">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        4. 余白 & 間隔（ミリメートル単位）
+                    </label>
+
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">上下外周余白</span>
+                            <span id="margin-v-val" class="text-sky-400 font-mono">11 mm</span>
+                        </div>
+                        <input type="range" id="margin-v" min="0" max="20" value="11" oninput="updateLayoutDimensions()" class="w-full accent-sky-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">左右外周余白</span>
+                            <span id="margin-h-val" class="text-sky-400 font-mono">10 mm</span>
+                        </div>
+                        <input type="range" id="margin-h" min="0" max="20" value="10" oninput="updateLayoutDimensions()" class="w-full accent-sky-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">カード間の隙間 (gap)</span>
+                            <span id="gap-val" class="text-sky-400 font-mono">0 mm</span>
+                        </div>
+                        <input type="range" id="gap-size" min="0" max="5" value="0" step="0.5" oninput="updateLayoutDimensions()" class="w-full accent-sky-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- 5. オプション（通し番号オーバーレイ） -->
+                <div class="space-y-3 pt-2 border-t border-slate-800">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                        5. 便利機能オプション
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                        <input type="checkbox" id="toggle-numbers" onchange="toggleCardNumbers(this.checked)" class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-sky-500 h-4 w-4">
+                        右下に連番を表示 (No.1 〜 No.10)
+                    </label>
+                </div>
+
+            </div>
+
+            <!-- サイドバーフッター -->
+            <div class="p-3 bg-slate-950/80 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                <span>1枚あたり計算サイズ:</span>
+                <span id="computed-card-size" class="font-mono text-sky-300 font-bold">95.0mm × 55.0mm</span>
+            </div>
+        </aside>
+
+        <!-- 右側：A4用紙リアルタイムプレビューエリア -->
+        <main class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden">
+
+            <!-- プレビュー用トップツールバー -->
+            <div class="no-print bg-slate-900/60 border-b border-slate-800 px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-slate-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    <span>印刷プレビュー (A4 210 × 297 mm)</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="zoomPreview(-0.1)" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <span id="zoom-label" class="text-xs font-mono text-slate-300 min-w-[3rem] text-center">100%</span>
+                    <button onclick="zoomPreview(0.1)" class="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button onclick="resetZoom()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
+                        全体表示
+                    </button>
+                </div>
+            </div>
+
+            <!-- 用紙配置ワークスペース (スクロール可能) -->
+            <div id="workspace" class="flex-1 overflow-auto p-6 md:p-10 flex items-start justify-center">
+
+                <!-- 実際に印刷・PDF化されるA4要素 -->
+                <div id="a4-paper" class="a4-sheet rounded-sm transition-all duration-300">
+                    <!-- 2列 x 5行 のカードグリッド -->
+                    <div id="card-grid" class="w-full h-full grid grid-cols-2 grid-rows-5" style="padding: 11mm 10mm; gap: 0mm;">
+                        <!-- JSで10枚のカードが動的に挿入されます -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 下部情報ヒント -->
+            <div class="no-print bg-slate-900/80 border-t border-slate-800 px-4 py-2 text-xs text-slate-400 flex items-center justify-between">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                    ヒント: 各カード枠をクリックすると、そのカードだけの個別画像をアップロード・変更できます。
+                </span>
+                <span class="hidden sm:inline text-slate-500 text-[11px]">標準: 胸ポケット・スマホ背面サイズ (約95×55mm)</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- ガイダンス・解説モーダル -->
+    <div id="guide-modal" class="no-print fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="guide-modal-content">
+            <!-- モーダルヘッダー -->
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-[#fa-ruler-combined]"></i>
+                        <i class="fa-solid fa-ruler-combined"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-100 text-lg">なぜA4・10枚配置（2列×5行）なのか？</h3>
+                        <p class="text-xs text-slate-400">ポケットにそのまま収まる最適カードサイズと運用のメリット</p>
+                    </div>
+                </div>
+                <button onclick="closeGuideModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- モーダル本文 -->
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-300">
+                
+                <!-- 図解パネル -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center gap-6">
+                    <div class="relative w-40 h-28 bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-sky-500/50 rounded-lg flex flex-col items-center justify-center p-2 shadow-inner text-center">
+                        <span class="text-xs font-bold text-sky-300">1枚あたりのカットサイズ</span>
+                        <span class="text-lg font-black text-white font-mono my-1">95mm × 55mm</span>
+                        <span class="text-[10px] text-slate-400">（標準名刺・ICカードに非常に近い）</span>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <h4 class="font-bold text-white text-base flex items-center gap-2">
+                            <i class="fa-solid fa-check text-emerald-400"></i>
+                            折らずに「スッ」と入る魔法のサイズ
+                        </h4>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            A4（210mm×297mm）を左右10mm・上下11mmの最適余白で10等分すると、ちょうど**95mm × 55mm**のカードが誕生します。これは一般的な名刺（91×55mm）や交通系ICカード（85.6×54mm）と同等サイズです。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- メリットリスト -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="p-4 bg-slate-800/50 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="text-sky-400 text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-user-graduate"></i> 学校・塾での配布に
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            英単語帳、公式覚え書き、提出カードなどに。生徒が制服の胸ポケットやペンケース、ノートの挟み込みポケットにそのまま保管できます。
+                        </p>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/50 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="text-indigo-400 text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-mobile-screen"></i> スマホケースに挟める
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            透明なスマホケースの裏側にぴったり収まる絶妙なサイズ感。お気に入りのイラストや写真、ショップカードの試作にも便利です。
+                        </p>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/50 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="text-emerald-400 text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-scissors"></i> 直線カットわずか6回
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            2列×5行のグリッド配置なら、カッターや定規を使って縦1回・横4回の計5〜6回の直線裁断で一気に10枚切り出し完了。手間がかかりません。
+                        </p>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/50 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="text-amber-400 text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-print"></i> 2ページ目ゼロを100%保証
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Web印刷にありがちな「数ミリのはみ出しで空の2ページ目が生成される」問題をCSSミリメートル精密設計で完全に防ぎます。
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- モーダルフッター -->
+            <div class="p-4 border-t border-slate-800 bg-slate-900/80 flex justify-end">
+                <button onclick="closeGuideModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs transition">
+                    理解しました
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * A4 10連カードプリンター - JavaScript Logic
+         */
+
+        // 状態管理オブジェクト
+        const state = {
+            cards: Array(10).fill(null), // 10枚分の画像URL
+            applyMode: 'all',            // 'all' (全枠同一) または 'each' (個別に適用)
+            objectFit: 'cover',          // 'cover' または 'contain'
+            showCutLines: true,          // ガイド線表示フラグ
+            lineStyle: 'dashed',         // 'dashed', 'solid', 'crop'
+            showNumbers: false,          // 連番表示フラグ
+            marginV: 11,                 // 上下外周余白 (mm)
+            marginH: 10,                 // 左右外周余白 (mm)
+            gap: 0,                      // カード間隔 (mm)
+            zoomLevel: 1.0,              // プレビュー表示ズーム
+            activeCardIndex: null        // 個別選択変更用インデックス
+        };
+
+        // サンプル内蔵SVGカード（初期化用データ）
+        const PRESETS = {
+            vocab: generateSampleSVG("English Vocab", "01 / PERSISTENCE", "粘り強さ, 継続力", "#0284c7", "#e0f2fe"),
+            thanks: generateSampleSVG("THANK YOU!", "Special Thanks Card", "いつもありがとうございます！", "#e11d48", "#ffe4e6"),
+            coupon: generateSampleSVG("SPECIAL COUPON", "OFF 20% DISCOUNT", "有効期限: 2026年12月末日まで", "#d97706", "#fef3c7"),
+            pass: generateSampleSVG("VIP ACCESS PASS", "MEMBER #8840-A", "全エリア入場可能ライセンス", "#059669", "#d1fae5")
+        };
+
+        // DOM要素参照の初期化
+        window.addEventListener('DOMContentLoaded', () => {
+            // デフォルトでサンプルプリセット「vocab」を全カードにセット
+            state.cards.fill(PRESETS.vocab);
+
+            // ドラッグ＆ドロップイベント設定
+            setupDropZone();
+
+            // 初期レンダリング
+            renderCards();
+            updateLayoutDimensions();
+            autoScaleWorkspace();
+
+            // ウィンドウサイズ変更時に自動スケール調整
+            window.addEventListener('resize', autoScaleWorkspace);
+        });
+
+        /**
+         * サンプル用デザインカード（SVG Data URL）を自動生成するヘルパー関数
+         */
+        function generateSampleSVG(title, subtitle, desc, primaryColor, bgColor) {
+            const svgString = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="950" height="550" viewBox="0 0 950 550">
+                <rect width="950" height="550" fill="${bgColor}"/>
+                <rect x="30" y="30" width="890" height="490" rx="20" fill="none" stroke="${primaryColor}" stroke-width="6" stroke-dasharray="12 12"/>
+                <circle cx="120" cy="120" r="45" fill="${primaryColor}" opacity="0.15"/>
+                <text x="120" y="132" font-family="'Noto Sans JP', sans-serif" font-size="36" font-weight="900" fill="${primaryColor}" text-anchor="middle">★</text>
+                <text x="200" y="135" font-family="'Noto Sans JP', sans-serif" font-size="38" font-weight="900" fill="${primaryColor}">${title}</text>
+                <line x1="200" y1="165" x2="880" y2="165" stroke="${primaryColor}" stroke-width="4" opacity="0.4"/>
+                <text x="200" y="250" font-family="'Noto Sans JP', sans-serif" font-size="46" font-weight="700" fill="#0f172a">${subtitle}</text>
+                <text x="200" y="340" font-family="'Noto Sans JP', sans-serif" font-size="34" font-weight="500" fill="#334155">${desc}</text>
+                <rect x="200" y="410" width="280" height="60" rx="10" fill="${primaryColor}"/>
+                <text x="340" y="452" font-family="'Noto Sans JP', sans-serif" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">POCKET CARD</text>
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+        }
+
+        /**
+         * A4用紙内のカード10枚を再描画
+         */
+        function renderCards() {
+            const grid = document.getElementById('card-grid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < 10; i++) {
+                const cardSrc = state.cards[i] || PRESETS.vocab;
+                
+                // カード要素作成
+                const cardEl = document.createElement('div');
+                cardEl.className = `card-item relative w-full h-full overflow-hidden flex items-center justify-center cursor-pointer group transition-all`;
+                
+                // 切り取り線クラス適用
+                applyLineStyleToCard(cardEl);
+
+                // カード内部構造
+                cardEl.innerHTML = `
+                    <img src="${cardSrc}" class="w-full h-full pointer-events-none select-none transition-transform" style="object-fit: ${state.objectFit};" alt="Card ${i+1}">
+                    
+                    ${state.showNumbers ? `<div class="absolute bottom-1 right-1.5 bg-slate-900/80 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur">No.${i+1}</div>` : ''}
+
+                    <!-- トンボ線用コンテナ -->
+                    ${state.showCutLines && state.lineStyle === 'crop' ? `
+                        <div class="crop-mark-tl"></div>
+                        <div class="crop-mark-tr"></div>
+                        <div class="crop-mark-bl"></div>
+                        <div class="crop-mark-br"></div>
+                    ` : ''}
+
+                    <!-- ホバー時オーバーレイ (画面表示のみ) -->
+                    <div class="no-print absolute inset-0 bg-sky-500/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <span class="bg-slate-900/90 text-white text-[10px] px-2 py-1 rounded shadow flex items-center gap-1 font-medium">
+                            <i class="fa-solid fa-pen-to-square"></i> 画像を変更
+                        </span>
+                    </div>
+                `;
+
+                // クリック時：個別画像選択ダイアログ起動
+                cardEl.onclick = () => selectSingleCardImage(i);
+
+                grid.appendChild(cardEl);
+            }
+        }
+
+        /**
+         * カード要素へ切り取り線クラスをセット
+         */
+        function applyLineStyleToCard(cardEl) {
+            cardEl.classList.remove('cut-line-dashed', 'cut-line-solid', 'cut-line-none', 'crop-marks');
+            
+            if (!state.showCutLines) {
+                cardEl.classList.add('cut-line-none');
+                return;
+            }
+
+            if (state.lineStyle === 'dashed') {
+                cardEl.classList.add('cut-line-dashed');
+            } else if (state.lineStyle === 'solid') {
+                cardEl.classList.add('cut-line-solid');
+            } else if (state.lineStyle === 'crop') {
+                cardEl.classList.add('crop-marks');
+            }
+        }
+
+        /**
+         * 余白・ギャップ・カードサイズの計算とスタイル更新
+         */
+        function updateLayoutDimensions() {
+            state.marginV = parseFloat(document.getElementById('margin-v').value);
+            state.marginH = parseFloat(document.getElementById('margin-h').value);
+            state.gap = parseFloat(document.getElementById('gap-size').value);
+
+            // 表示ラベル更新
+            document.getElementById('margin-v-val').textContent = state.marginV + ' mm';
+            document.getElementById('margin-h-val').textContent = state.marginH + ' mm';
+            document.getElementById('gap-val').textContent = state.gap + ' mm';
+
+            // 1枚あたりの精密計算サイズ
+            // A4 = 210mm x 297mm
+            const cardWidth = ((210 - (state.marginH * 2) - state.gap) / 2).toFixed(1);
+            const cardHeight = ((297 - (state.marginV * 2) - (state.gap * 4)) / 5).toFixed(1);
+
+            document.getElementById('computed-card-size').textContent = `${cardWidth}mm × ${cardHeight}mm`;
+
+            // A4グリッドのCSS padding & gap をミリ指定でダイレクト更新
+            const grid = document.getElementById('card-grid');
+            grid.style.padding = `${state.marginV}mm ${state.marginH}mm`;
+            grid.style.gap = `${state.gap}mm`;
+        }
+
+        /**
+         * ドロップゾーンの設定
+         */
+        function setupDropZone() {
+            const dropZone = document.getElementById('drop-zone');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('border-sky-500', 'bg-slate-800'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-sky-500', 'bg-slate-800'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    processUploadedFiles(files);
+                }
+            });
+
+            dropZone.onclick = () => document.getElementById('image-input').click();
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                processUploadedFiles(files);
+            }
+        }
+
+        /**
+         * アップロードされた複数/単一画像の処理
+         */
+        function processUploadedFiles(files) {
+            const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (imageFiles.length === 0) return;
+
+            if (state.applyMode === 'all' || imageFiles.length === 1) {
+                // 1枚の画像を全10枚枠に適用
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    state.cards.fill(e.target.result);
+                    renderCards();
+                };
+                reader.readAsDataURL(imageFiles[0]);
+            } else {
+                // 複数画像を順番にセット
+                let loadedCount = 0;
+                imageFiles.slice(0, 10).forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        state.cards[index] = e.target.result;
+                        loadedCount++;
+                        if (loadedCount === Math.min(imageFiles.length, 10)) {
+                            renderCards();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        /**
+         * 個別カード枠の画像変更
+         */
+        function selectSingleCardImage(index) {
+            state.activeCardIndex = index;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        state.cards[index] = evt.target.result;
+                        renderCards();
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        /**
+         * 適用モード切り替え
+         */
+        function setApplyMode(mode) {
+            state.applyMode = mode;
+            const allBtn = document.getElementById('mode-all-btn');
+            const eachBtn = document.getElementById('mode-each-btn');
+
+            if (mode === 'all') {
+                allBtn.className = "py-1.5 rounded-md bg-sky-600 text-white shadow text-center transition";
+                eachBtn.className = "py-1.5 rounded-md text-slate-400 hover:text-white text-center transition";
+                // 一括モード時は最初のカード画像を全体に同期
+                state.cards.fill(state.cards[0] || PRESETS.vocab);
+                renderCards();
+            } else {
+                eachBtn.className = "py-1.5 rounded-md bg-sky-600 text-white shadow text-center transition";
+                allBtn.className = "py-1.5 rounded-md text-slate-400 hover:text-white text-center transition";
+            }
+        }
+
+        /**
+         * 画像プリセット適用
+         */
+        function applyPreset(presetKey) {
+            if (PRESETS[presetKey]) {
+                state.cards.fill(PRESETS[presetKey]);
+                renderCards();
+            }
+        }
+
+        /**
+         * 画像のフィット方式設定 (cover / contain)
+         */
+        function setImageFit(fitMode) {
+            state.objectFit = fitMode;
+            const coverBtn = document.getElementById('fit-cover-btn');
+            const containBtn = document.getElementById('fit-contain-btn');
+
+            if (fitMode === 'cover') {
+                coverBtn.className = "flex items-center gap-2 p-2.5 rounded-xl border bg-sky-950/60 border-sky-500 text-sky-200 text-xs font-medium transition";
+                containBtn.className = "flex items-center gap-2 p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium transition";
+            } else {
+                containBtn.className = "flex items-center gap-2 p-2.5 rounded-xl border bg-sky-950/60 border-sky-500 text-sky-200 text-sky-200 text-xs font-medium transition";
+                coverBtn.className = "flex items-center gap-2 p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium transition";
+            }
+
+            renderCards();
+        }
+
+        /**
+         * 切り取り線のON/OFF
+         */
+        function toggleCutLines(checked) {
+            state.showCutLines = checked;
+            renderCards();
+        }
+
+        /**
+         * 切り取り線のスタイル選択
+         */
+        function setLineStyle(style) {
+            state.lineStyle = style;
+            const dashedBtn = document.getElementById('line-dashed-btn');
+            const solidBtn = document.getElementById('line-solid-btn');
+            const cropBtn = document.getElementById('line-crop-btn');
+
+            [dashedBtn, solidBtn, cropBtn].forEach(b => b.className = "p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-600 text-xs font-medium text-center transition");
+
+            if (style === 'dashed') dashedBtn.className = "p-2 rounded-lg bg-sky-950/60 border border-sky-500 text-sky-300 text-xs font-medium text-center transition";
+            if (style === 'solid') solidBtn.className = "p-2 rounded-lg bg-sky-950/60 border border-sky-500 text-sky-300 text-xs font-medium text-center transition";
+            if (style === 'crop') cropBtn.className = "p-2 rounded-lg bg-sky-950/60 border border-sky-500 text-sky-300 text-xs font-medium text-center transition";
+
+            renderCards();
+        }
+
+        /**
+         * 連番のON/OFF
+         */
+        function toggleCardNumbers(checked) {
+            state.showNumbers = checked;
+            renderCards();
+        }
+
+        /**
+         * 画面プレビューの拡大・縮小
+         */
+        function zoomPreview(delta) {
+            state.zoomLevel = Math.min(Math.max(0.4, state.zoomLevel + delta), 2.0);
+            applyZoom();
+        }
+
+        function resetZoom() {
+            autoScaleWorkspace();
+        }
+
+        function applyZoom() {
+            const paper = document.getElementById('a4-paper');
+            document.getElementById('zoom-label').textContent = Math.round(state.zoomLevel * 100) + '%';
+            paper.style.transform = `scale(${state.zoomLevel})`;
+            paper.style.transformOrigin = 'top center';
+        }
+
+        /**
+         * 画面幅に応じたA4シートのオートスケール
+         */
+        function autoScaleWorkspace() {
+            const workspace = document.getElementById('workspace');
+            if (!workspace) return;
+
+            const availableWidth = workspace.clientWidth - 60; // 余白確保
+            const a4WidthPx = 794; // A4 (210mm) at ~96DPI
+
+            if (availableWidth < a4WidthPx) {
+                state.zoomLevel = Math.max(0.35, availableWidth / a4WidthPx);
+            } else {
+                state.zoomLevel = 0.85; // デフォルトでスッキリ収まる倍率
+            }
+            applyZoom();
+        }
+
+        /**
+         * 全設定のリセット
+         */
+        function resetAllSettings() {
+            state.cards.fill(PRESETS.vocab);
+            state.applyMode = 'all';
+            state.objectFit = 'cover';
+            state.showCutLines = true;
+            state.lineStyle = 'dashed';
+            state.showNumbers = false;
+
+            document.getElementById('margin-v').value = 11;
+            document.getElementById('margin-h').value = 10;
+            document.getElementById('gap-size').value = 0;
+            document.getElementById('toggle-cut-lines').checked = true;
+            document.getElementById('toggle-numbers').checked = false;
+
+            setApplyMode('all');
+            setImageFit('cover');
+            setLineStyle('dashed');
+            updateLayoutDimensions();
+            autoScaleWorkspace();
+            renderCards();
+        }
+
+        /**
+         * 印刷/PDF保存 ダイアログ起動
+         */
+        function triggerPrint() {
+            // 印刷実行前にプレビュー拡大率を標準化（CSSの@media printが上書き処理）
+            window.print();
+        }
+
+        /**
+         * 解説モーダルコントロール
+         */
+        function openGuideModal() {
+            const modal = document.getElementById('guide-modal');
+            const content = document.getElementById('guide-modal-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeGuideModal() {
+            const modal = document.getElementById('guide-modal');
+            const content = document.getElementById('guide-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+        }
+    </script>
+</body>
+</html>
